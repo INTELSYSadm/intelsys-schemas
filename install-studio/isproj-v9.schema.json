@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://schemas.intelsys.dev/install-studio/isproj-v9.schema.json",
+  "$id": "https://schemas.intelsys.ca/install-studio/isproj-v9.schema.json",
   "title": "INTELSYS Install Studio project (.isproj), schema version 9",
   "description": "Declarative description of an installer. This file is the contract between the designer, the isbuild CLI and the packagers: anything the designer can produce must be reproducible from this file alone. Older projects still build, because every field added since is optional.",
   "type": "object",

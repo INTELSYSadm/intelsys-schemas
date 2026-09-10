@@ -1,7 +1,7 @@
 # INTELSYS schemas
 
 Published JSON Schemas for INTELSYS file formats, served at
-**https://schemas.intelsys.dev/**.
+**https://schemas.intelsys.ca/**.
 
 This repository is public for one reason: a `$schema` URL only works if anybody
 can fetch it. Editors such as Visual Studio Code and Visual Studio download it
@@ -10,7 +10,7 @@ to offer completion and validation while somebody edits the file.
 ## Install Studio project files (`.isproj`)
 
 ```
-https://schemas.intelsys.dev/install-studio/isproj-v17.schema.json
+https://schemas.intelsys.ca/install-studio/isproj-v17.schema.json
 ```
 
 An `.isproj` is the declarative description of an installer, and is the contract
