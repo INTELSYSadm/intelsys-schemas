@@ -1,0 +1,580 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.intelsys.dev/install-studio/isproj-v12.schema.json",
+  "title": "INTELSYS Install Studio project (.isproj), schema version 12",
+  "description": "Declarative description of an installer. This file is the contract between the designer, the isbuild CLI and the packagers: anything the designer can produce must be reproducible from this file alone. Older projects still build, because every field added since is optional.",
+  "type": "object",
+  "required": ["schemaVersion", "product", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Points editors at this schema."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "description": "Version of the .isproj format this project is written in."
+    },
+    "product": {
+      "type": "object",
+      "required": ["name", "version", "manufacturer", "upgradeCode"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shown during install and in Add/Remove Programs."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+){1,3}$",
+          "description": "major.minor.build. Windows Installer compares only these three fields; a fourth is stored but never affects upgrades."
+        },
+        "manufacturer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The publisher, as it should appear to a customer's IT department."
+        },
+        "upgradeCode": {
+          "type": "string",
+          "pattern": "^\\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\}?$",
+          "description": "Identifies the product family for upgrades. Generate once, then never change it: a new upgrade code makes every future release install alongside the old one instead of replacing it."
+        },
+        "language": {
+          "type": "integer",
+          "default": 1033,
+          "description": "Language identifier. 1033 is English (United States)."
+        },
+        "architecture": {
+          "type": "string",
+          "enum": ["x64", "x86"],
+          "default": "x64",
+          "description": "Target architecture of the package."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text stored in the package's properties."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon file relative to this project. Shown in Add/Remove Programs and used as the default for shortcuts. Embedded in the package."
+        },
+        "helpLink": {
+          "type": "string",
+          "description": "Support page shown in Add/Remove Programs."
+        },
+        "aboutLink": {
+          "type": "string",
+          "description": "Product page shown in Add/Remove Programs."
+        },
+        "licenceFile": {
+          "type": "string",
+          "description": "A plain-text licence agreement, relative to this project. Empty shows no licence page. ⚠ Plain UTF-8 text, not RTF: an RTF reader inside a two-megabyte setup program is disproportionate to what a licence needs, and plain text diffs in Git."
+        },
+        "contact": {
+          "type": "string",
+          "description": "Support contact shown in Add/Remove Programs."
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["perMachine"],
+          "default": "perMachine",
+          "description": "perMachine installs for every user and requires elevation. Per-user installs arrive with their own release."
+        },
+        "programFilesSubfolder": {
+          "type": "string",
+          "description": "Folder below Program Files, e.g. INTELSYS\\Install Studio. Empty means manufacturer and product name are used."
+        },
+        "allowModify": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether Add/Remove Programs offers a Modify button. Off by default: with nothing to choose between, Modify opens a maintenance run that does nothing."
+        },
+        "allowRepair": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether Add/Remove Programs offers a Repair button."
+        },
+        "allowDowngrade": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this package may install over a newer version of itself. Off by default, because doing so replaces newer files with older ones."
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Folders of build output to install.",
+      "items": {
+        "type": "object",
+        "required": ["source"],
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Folder to take files from, relative to this project file."
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^INSTALLFOLDER([\\\\/].+)?$",
+            "default": "INSTALLFOLDER",
+            "description": "Where the files go: INSTALLFOLDER, optionally with a subpath such as INSTALLFOLDER/plugins."
+          },
+          "feature": {
+            "type": "string",
+            "description": "Which feature these files belong to. Required as soon as the project declares features, and meaningless before that."
+          },
+          "recursive": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to descend into subfolders."
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Patterns to leave out. A pattern without a slash matches file names anywhere (*.pdb); one with a slash matches the path relative to source.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "description": "What a person installing can choose between. Empty means the product installs as one thing, which is what most projects want. As soon as this has an entry, every file root and every shortcut has to say which feature it belongs to.",
+      "items": {
+        "type": "object",
+        "required": ["id"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$",
+            "description": "What the rest of the project calls this feature, and the name a deployment tool passes to ADDLOCAL."
+          },
+          "title": {
+            "type": "string",
+            "description": "What the person installing sees. Empty uses the id."
+          },
+          "description": {
+            "type": "string",
+            "description": "One line saying what they get if they tick it."
+          },
+          "parent": {
+            "type": "string",
+            "description": "Feature this one sits under. Empty makes it top-level."
+          },
+          "default": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether it starts ticked. Off is offered and unticked, never hidden."
+          },
+          "required": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether the person installing may turn it off. A required feature is always installed and is not offered."
+          }
+        }
+      }
+    },
+    "services": {
+      "type": "array",
+      "description": "Windows services the installer registers. Every one of them is also removed on uninstall: that is not a choice, because Windows Installer leaves a service behind unless the package explicitly says to delete it.",
+      "items": {
+        "type": "object",
+        "required": ["name", "executable"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "pattern": "^[^/\\\\]+$",
+            "description": "The name the service control manager knows it by. No slashes."
+          },
+          "displayName": {
+            "type": "string",
+            "description": "What a person sees in the Services list. Empty uses the name."
+          },
+          "description": {
+            "type": "string",
+            "description": "One line saying what it does, shown in the Services list."
+          },
+          "executable": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The service binary, relative to the install folder. It must be a file this project installs."
+          },
+          "feature": {
+            "type": "string",
+            "description": "Which feature it belongs to. Empty follows its own executable, which is almost always right."
+          },
+          "startType": {
+            "type": "string",
+            "enum": ["auto", "manual", "disabled"],
+            "default": "auto",
+            "description": "auto starts with Windows; manual starts when something asks; disabled registers it and stops it being started. Boot and system start are for drivers and Windows Installer cannot set them."
+          },
+          "account": {
+            "type": "string",
+            "description": "Account it logs on as. Empty means LocalSystem. NT AUTHORITY\\LocalService, NT AUTHORITY\\NetworkService and a group managed service account (DOMAIN\\name$) all need no password."
+          },
+          "passwordProperty": {
+            "type": "string",
+            "pattern": "^[A-Z_][A-Z0-9_.]*$",
+            "description": "The NAME of a Windows Installer property holding the account password, such as SERVICEPASSWORD — never a password. The project file lives in source control; a credential in it is a leak with a version history. Pass the value on the install command line instead."
+          },
+          "arguments": {
+            "type": "string",
+            "description": "Command line the service is started with."
+          },
+          "dependencies": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Services that must start first. Prefix a load-order group with +."
+          },
+          "startOnInstall": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the installer starts it once registered. Ignored for a disabled service, which cannot be started."
+          },
+          "recovery": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "What Windows does when the service stops unexpectedly. ⚠ Applied by running sc.exe rather than through MsiServiceConfigFailureActions: Microsoft's documentation says of that table that 'this functionality is not working as expected' and directs authors to sc.exe, so writing it would produce a package that reads correctly and does nothing.",
+            "properties": {
+              "first": {
+                "type": "string",
+                "enum": ["none", "restart", "reboot"],
+                "default": "restart",
+                "description": "What to do the first time it fails."
+              },
+              "second": {
+                "type": "string",
+                "enum": ["none", "restart", "reboot"],
+                "default": "restart",
+                "description": "What to do the second time."
+              },
+              "rest": {
+                "type": "string",
+                "enum": ["none", "restart", "reboot"],
+                "default": "none",
+                "description": "What to do every time after that. ⚠ Defaults to leaving it stopped on purpose: a service that crashes at startup and restarts forever fills the event log, burns the battery, and hides the original failure."
+              },
+              "restartAfterSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 60,
+                "description": "How long to wait before restarting."
+              },
+              "resetAfterSeconds": {
+                "type": "integer",
+                "minimum": 0,
+                "default": 86400,
+                "description": "How long until the failure count goes back to zero. ⚠ Without it, a service that fails once a month eventually reaches its third failure and stops being restarted, months apart, for a reason nobody can reconstruct."
+              }
+            }
+          }
+        }
+      }
+    },
+    "shortcuts": {
+      "type": "array",
+      "description": "Start menu and desktop shortcuts. Each is created with the program and removed with it.",
+      "items": {
+        "type": "object",
+        "required": ["name", "target"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the shortcut is called. This is what the user sees and searches for."
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to the install folder, such as App.exe. It must be a file this project installs."
+          },
+          "location": {
+            "type": "string",
+            "enum": ["startMenu", "desktop"],
+            "default": "startMenu",
+            "description": "Where the shortcut is created."
+          },
+          "feature": {
+            "type": "string",
+            "description": "Which feature this shortcut belongs to. Empty follows the file it points at, which is almost always right. A shortcut in a different feature from its target is refused."
+          },
+          "scope": {
+            "type": "string",
+            "enum": ["allUsers", "ask"],
+            "default": "allUsers",
+            "description": "Whether the desktop shortcut is always created (allUsers) or offered to the person installing (ask). Desktop shortcuts only. A per-machine package cannot create a shortcut for one user only: Windows Installer folds any destination that resolves to a profile shell folder onto the desktop everyone shares."
+          },
+          "folder": {
+            "type": "string",
+            "description": "Folder under the Start menu's Programs. Empty puts the shortcut straight into Programs. Ignored for desktop shortcuts."
+          },
+          "description": {
+            "type": "string",
+            "description": "Tooltip."
+          },
+          "arguments": {
+            "type": "string",
+            "description": "Command-line arguments passed to the target."
+          },
+          "icon": {
+            "type": "string",
+            "description": "Icon file relative to this project. Empty uses product.icon."
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputFolder": {
+          "type": "string",
+          "default": "artifacts",
+          "description": "Folder for build output, relative to this project file."
+        },
+        "packageFileName": {
+          "type": "string",
+          "description": "Name of the package. Empty means name and version are used."
+        },
+        "cabinetName": {
+          "type": "string",
+          "default": "product.cab",
+          "description": "Name of the cabinet embedded in the package."
+        }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the build signs the package and the setup program. There is no field for a certificate file, a password or a secret, and none may be added: identity comes from whoever is signed in, so this file stays safe to commit.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["none", "azureArtifactSigning"],
+          "default": "none",
+          "description": "Off by default, because most build servers sign as a separate job with credentials the build does not hold."
+        },
+        "timestampUrl": {
+          "type": "string",
+          "format": "uri",
+          "default": "http://timestamp.acs.microsoft.com/",
+          "description": "RFC 3161 timestamp authority. Mandatory: an Artifact Signing certificate is renewed about every three days, so an untimestamped signature stops validating almost at once."
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "The signing account's regional endpoint, such as https://eus.codesigning.azure.net/. It must match the region the account was created in."
+        },
+        "account": {
+          "type": "string",
+          "description": "The signing account name."
+        },
+        "certificateProfile": {
+          "type": "string",
+          "description": "The certificate profile within that account."
+        },
+        "azureCredentialType": {
+          "type": "string",
+          "enum": ["azure-cli", "azure-powershell", "managed-identity", "workload-identity"],
+          "description": "Which Azure credential to use. Omit to let the tooling work it out, which is right on a build server and slow on a developer machine that has several available."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "azureArtifactSigning" } }, "required": ["mode"] },
+          "then": { "required": ["endpoint", "account", "certificateProfile"] }
+        }
+      ]
+    },
+    "permissions": {
+      "type": "array",
+      "description": "Who may touch the folders this package creates. ⚠ Only folders this package creates: an access-control list applied to a folder that was already there is never reverted on uninstall, because Windows Installer has nowhere to keep the previous one, so allowing it would permanently change a customer's machine while reporting a clean uninstall.",
+      "items": {
+        "type": "object",
+        "required": ["path"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "description": "The folder, as INSTALLFOLDER or a path beneath it."
+          },
+          "grant": {
+            "type": "array",
+            "description": "Who may do what. Grants only: a deny entry beats every grant regardless of order and is the easiest way to produce a folder nothing can open and nobody can explain.",
+            "items": {
+              "type": "object",
+              "required": ["to", "rights"],
+              "additionalProperties": false,
+              "properties": {
+                "to": {
+                  "type": "string",
+                  "enum": ["administrators", "system", "users", "authenticatedUsers", "creatorOwner", "service"],
+                  "description": "Who. 'service' is the account this project's service logs on as, resolved when the package is planned so that changing the account does not leave a permission behind for the old one."
+                },
+                "rights": {
+                  "type": "string",
+                  "enum": ["read", "readWrite", "full"],
+                  "description": "What they may do. ⚠ Granting 'readWrite' or 'full' to 'users' or 'authenticatedUsers' on a folder holding an executable is refused: a standard user who can write beside a program can replace it and wait for an administrator to run it. Put writable data under %ProgramData% instead."
+                }
+              }
+            }
+          },
+          "sddl": {
+            "type": "string",
+            "description": "A security descriptor written by hand, instead of 'grant'. ⚠ Passed through unexamined — the check that refuses a dangerous grant cannot read this, and the build says so rather than leaving you to assume you are still covered."
+          }
+        }
+      }
+    },
+    "environment": {
+      "type": "array",
+      "description": "Environment variables the installer sets, and removes again on uninstall. Always machine-wide: this package installs per machine, and a user variable written by a per-machine install lands on whichever account ran the installer, which on a terminal server is an account nobody uses.",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The variable's name, with no prefix characters. Install Studio adds the ones Windows Installer needs."
+          },
+          "value": {
+            "type": "string",
+            "description": "What to set it to, replacing anything already there. ⚠ Replacing a variable Windows sets up itself is refused: for PATH, Microsoft's own warning is that the existing path is lost and the computer may not boot. Use 'append' instead."
+          },
+          "append": {
+            "type": "string",
+            "description": "Something to add to the end of the existing value, keeping what is there."
+          },
+          "prepend": {
+            "type": "string",
+            "description": "Something to add to the front of the existing value, keeping what is there."
+          },
+          "separator": {
+            "type": "string",
+            "default": ";",
+            "description": "What goes between the existing value and the added one."
+          },
+          "onlyIfMissing": {
+            "type": "boolean",
+            "default": false,
+            "description": "Leave an existing value alone rather than replacing it. Meaningless with append or prepend, which already keep what is there."
+          }
+        }
+      }
+    },
+    "iniValues": {
+      "type": "array",
+      "description": "Values written into .ini files. Removed on uninstall without anything extra being declared: Windows Installer takes back what it wrote, unlike a service, which stays registered unless something says to delete it.",
+      "items": {
+        "type": "object",
+        "required": ["file", "section", "key", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "file": { "type": "string", "description": "Name of the .ini file, such as settings.ini." },
+          "folder": {
+            "type": "string",
+            "default": "INSTALLFOLDER",
+            "description": "Where the file lives: INSTALLFOLDER or a path beneath it. ⚠ It must be a folder this package creates. Windows Installer reads an unspecified folder as the Windows directory, so a missing one would put the file in C:\\Windows."
+          },
+          "section": { "type": "string", "description": "Section within the file, without its brackets." },
+          "key": { "type": "string", "description": "Key within the section." },
+          "value": { "type": "string", "description": "What to write." },
+          "action": {
+            "type": "string",
+            "enum": ["set", "setIfMissing", "addToList"],
+            "default": "set",
+            "description": "What to do about a value already there: replace it, leave it alone, or add to its comma-separated list."
+          }
+        }
+      }
+    },
+    "fonts": {
+      "type": "array",
+      "description": "Fonts the installer registers with Windows.",
+      "items": {
+        "type": "object",
+        "required": ["file"],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "The font file, relative to the install folder. ⚠ It must be a file this package installs: Windows accepts a registration pointing at a file that is not there and produces a typeface nothing can open."
+          },
+          "title": {
+            "type": "string",
+            "description": "The name Windows shows. Leave it empty for TrueType and OpenType, which carry their own name — writing one the font disagrees with is how a typeface appears twice under two names."
+          }
+        }
+      }
+    },
+    "fileAssociations": {
+      "type": "array",
+      "description": "File types this product can open. ⚠ 'Can open', never 'is the default for'. On Windows 10 and later the person using the computer chooses the default in Settings, and their choice is protected by a hash the system verifies — an installer cannot claim it, and the API that used to has been unsupported since Windows 8. What this does produce is real: the product appears in 'Open with', the type gets a name and an icon, and the product is listed in Default Apps where a person can pick it.",
+      "items": {
+        "type": "object",
+        "required": ["extension", "opens", "description"],
+        "additionalProperties": false,
+        "properties": {
+          "extension": { "type": "string", "description": "The extension, with or without its dot." },
+          "opens": {
+            "type": "string",
+            "description": "The executable that opens it, relative to the install folder. ⚠ Must be a file this package installs: an extension pointing at a program that is not there is a file type that opens nothing, and Windows keeps offering it."
+          },
+          "description": {
+            "type": "string",
+            "description": "What a person sees for this file type, such as \"Contoso Drawing\". ⚠ Required, not decoration: without it the product does not appear in the Default Apps list at all, which is the one place a person can choose it."
+          },
+          "progId": {
+            "type": "string",
+            "description": "The identifier the type is opened through. Leave it empty to derive one from the product and extension. ⚠ Always application-specific — writing the extension's own generic key overwrites another product's registration with neither recoverable."
+          },
+          "contentType": { "type": "string", "description": "Content type, when the file also travels over the web." },
+          "arguments": {
+            "type": "string",
+            "default": "\"%1\"",
+            "description": "Arguments passed to the executable, where %1 is the file being opened."
+          },
+          "default": {
+            "type": "boolean",
+            "description": "⚠ Refused, and it exists only so the request can be refused with a reason. Windows does not let an installer choose the default program for a file type."
+          }
+        }
+      }
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the setup program looks. Every field here is one it can honour on any machine, in light and dark, at any scaling, without a designer present to check the result.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["intelsys", "system"],
+          "default": "intelsys",
+          "description": "The palette to start from. 'intelsys' is navy for anything read and teal for anything drawn; 'system' uses Windows' own colours."
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Overrides the palette's accent, as #RRGGBB. ⚠ Decoration, not a text colour: it fills the progress bar and the rule under the header, and the setup program works out for itself what is readable on top of it. Empty keeps the palette's own."
+        }
+      }
+    }
+  }
+}

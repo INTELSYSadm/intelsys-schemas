@@ -1,0 +1,270 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.intelsys.dev/install-studio/isproj-v4.schema.json",
+  "title": "INTELSYS Install Studio project (.isproj), schema version 4",
+  "description": "Declarative description of an installer. This file is the contract between the designer, the isbuild CLI and the packagers: anything the designer can produce must be reproducible from this file alone. Version 4 adds the setup program theme; version 3 added signing; version 2 added shortcuts, icons and the Add/Remove Programs fields. Older projects still build, because every field added since is optional.",
+  "type": "object",
+  "required": ["schemaVersion", "product", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Points editors at this schema."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "enum": [1, 2, 3, 4],
+      "description": "Version of the .isproj format this project is written in."
+    },
+    "product": {
+      "type": "object",
+      "required": ["name", "version", "manufacturer", "upgradeCode"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shown during install and in Add/Remove Programs."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+){1,3}$",
+          "description": "major.minor.build. Windows Installer compares only these three fields; a fourth is stored but never affects upgrades."
+        },
+        "manufacturer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The publisher, as it should appear to a customer's IT department."
+        },
+        "upgradeCode": {
+          "type": "string",
+          "pattern": "^\\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\}?$",
+          "description": "Identifies the product family for upgrades. Generate once, then never change it: a new upgrade code makes every future release install alongside the old one instead of replacing it."
+        },
+        "language": {
+          "type": "integer",
+          "default": 1033,
+          "description": "Language identifier. 1033 is English (United States)."
+        },
+        "architecture": {
+          "type": "string",
+          "enum": ["x64", "x86"],
+          "default": "x64",
+          "description": "Target architecture of the package."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text stored in the package's properties."
+        },
+        "icon": {
+          "type": "string",
+          "description": "Icon file relative to this project. Shown in Add/Remove Programs and used as the default for shortcuts. Embedded in the package."
+        },
+        "helpLink": {
+          "type": "string",
+          "description": "Support page shown in Add/Remove Programs."
+        },
+        "aboutLink": {
+          "type": "string",
+          "description": "Product page shown in Add/Remove Programs."
+        },
+        "licenceFile": {
+          "type": "string",
+          "description": "A plain-text licence agreement, relative to this project. Empty shows no licence page. ⚠ Plain UTF-8 text, not RTF: an RTF reader inside a two-megabyte setup program is disproportionate to what a licence needs, and plain text diffs in Git."
+        },
+        "contact": {
+          "type": "string",
+          "description": "Support contact shown in Add/Remove Programs."
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["perMachine"],
+          "default": "perMachine",
+          "description": "perMachine installs for every user and requires elevation. Per-user installs arrive with their own release."
+        },
+        "programFilesSubfolder": {
+          "type": "string",
+          "description": "Folder below Program Files, e.g. INTELSYS\\Install Studio. Empty means manufacturer and product name are used."
+        },
+        "allowModify": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether Add/Remove Programs offers a Modify button. Off by default: with nothing to choose between, Modify opens a maintenance run that does nothing."
+        },
+        "allowRepair": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether Add/Remove Programs offers a Repair button."
+        },
+        "allowDowngrade": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether this package may install over a newer version of itself. Off by default, because doing so replaces newer files with older ones."
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Folders of build output to install.",
+      "items": {
+        "type": "object",
+        "required": ["source"],
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Folder to take files from, relative to this project file."
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^INSTALLFOLDER([\\\\/].+)?$",
+            "default": "INSTALLFOLDER",
+            "description": "Where the files go: INSTALLFOLDER, optionally with a subpath such as INSTALLFOLDER/plugins."
+          },
+          "recursive": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to descend into subfolders."
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Patterns to leave out. A pattern without a slash matches file names anywhere (*.pdb); one with a slash matches the path relative to source.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "shortcuts": {
+      "type": "array",
+      "description": "Start menu and desktop shortcuts. Each is created with the program and removed with it.",
+      "items": {
+        "type": "object",
+        "required": ["name", "target"],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "What the shortcut is called. This is what the user sees and searches for."
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path relative to the install folder, such as App.exe. It must be a file this project installs."
+          },
+          "location": {
+            "type": "string",
+            "enum": ["startMenu", "desktop"],
+            "default": "startMenu",
+            "description": "Where the shortcut is created."
+          },
+          "folder": {
+            "type": "string",
+            "description": "Folder under the Start menu's Programs. Empty puts the shortcut straight into Programs. Ignored for desktop shortcuts."
+          },
+          "description": {
+            "type": "string",
+            "description": "Tooltip."
+          },
+          "arguments": {
+            "type": "string",
+            "description": "Command-line arguments passed to the target."
+          },
+          "icon": {
+            "type": "string",
+            "description": "Icon file relative to this project. Empty uses product.icon."
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputFolder": {
+          "type": "string",
+          "default": "artifacts",
+          "description": "Folder for build output, relative to this project file."
+        },
+        "packageFileName": {
+          "type": "string",
+          "description": "Name of the package. Empty means name and version are used."
+        },
+        "cabinetName": {
+          "type": "string",
+          "default": "product.cab",
+          "description": "Name of the cabinet embedded in the package."
+        }
+      }
+    },
+    "signing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the build signs the package and the setup program. There is no field for a certificate file, a password or a secret, and none may be added: identity comes from whoever is signed in, so this file stays safe to commit.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["none", "azureArtifactSigning"],
+          "default": "none",
+          "description": "Off by default, because most build servers sign as a separate job with credentials the build does not hold."
+        },
+        "timestampUrl": {
+          "type": "string",
+          "format": "uri",
+          "default": "http://timestamp.acs.microsoft.com/",
+          "description": "RFC 3161 timestamp authority. Mandatory: an Artifact Signing certificate is renewed about every three days, so an untimestamped signature stops validating almost at once."
+        },
+        "endpoint": {
+          "type": "string",
+          "format": "uri",
+          "description": "The signing account's regional endpoint, such as https://eus.codesigning.azure.net/. It must match the region the account was created in."
+        },
+        "account": {
+          "type": "string",
+          "description": "The signing account name."
+        },
+        "certificateProfile": {
+          "type": "string",
+          "description": "The certificate profile within that account."
+        },
+        "azureCredentialType": {
+          "type": "string",
+          "enum": ["azure-cli", "azure-powershell", "managed-identity", "workload-identity"],
+          "description": "Which Azure credential to use. Omit to let the tooling work it out, which is right on a build server and slow on a developer machine that has several available."
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "mode": { "const": "azureArtifactSigning" } }, "required": ["mode"] },
+          "then": { "required": ["endpoint", "account", "certificateProfile"] }
+        }
+      ]
+    },
+    "theme": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "How the setup program looks. Every field here is one it can honour on any machine, in light and dark, at any scaling, without a designer present to check the result.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "enum": ["intelsys", "system"],
+          "default": "intelsys",
+          "description": "The palette to start from. 'intelsys' is navy for anything read and teal for anything drawn; 'system' uses Windows' own colours."
+        },
+        "accent": {
+          "type": "string",
+          "pattern": "^#[0-9A-Fa-f]{6}$",
+          "description": "Overrides the palette's accent, as #RRGGBB. ⚠ Decoration, not a text colour: it fills the progress bar and the rule under the header, and the setup program works out for itself what is readable on top of it. Empty keeps the palette's own."
+        }
+      }
+    }
+  }
+}

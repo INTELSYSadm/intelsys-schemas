@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.intelsys.dev/install-studio/isproj-v1.schema.json",
+  "title": "INTELSYS Install Studio project (.isproj), schema version 1",
+  "description": "Declarative description of an installer. This file is the contract between the designer, the isbuild CLI and the packagers: anything the designer can produce must be reproducible from this file alone.",
+  "type": "object",
+  "required": ["schemaVersion", "product", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Points editors at this schema."
+    },
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1,
+      "description": "Version of the .isproj format."
+    },
+    "product": {
+      "type": "object",
+      "required": ["name", "version", "manufacturer", "upgradeCode"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Shown during install and in Add/Remove Programs."
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[0-9]+(\\.[0-9]+){1,3}$",
+          "description": "major.minor.build. Windows Installer compares only these three fields; a fourth is stored but never affects upgrades."
+        },
+        "manufacturer": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The publisher, as it should appear to a customer's IT department."
+        },
+        "upgradeCode": {
+          "type": "string",
+          "pattern": "^\\{?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\\}?$",
+          "description": "Identifies the product family for upgrades. Generate once, then never change it: a new upgrade code makes every future release install alongside the old one instead of replacing it."
+        },
+        "language": {
+          "type": "integer",
+          "default": 1033,
+          "description": "Language identifier. 1033 is English (United States)."
+        },
+        "architecture": {
+          "type": "string",
+          "enum": ["x64", "x86"],
+          "default": "x64",
+          "description": "Target architecture of the package."
+        },
+        "description": {
+          "type": "string",
+          "description": "Free text stored in the package's properties."
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "scope": {
+          "type": "string",
+          "enum": ["perMachine"],
+          "default": "perMachine",
+          "description": "perMachine installs for every user and requires elevation. Per-user installs arrive with their own release."
+        },
+        "programFilesSubfolder": {
+          "type": "string",
+          "description": "Folder below Program Files, e.g. INTELSYS\\Install Studio. Empty means manufacturer and product name are used."
+        }
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Folders of build output to install.",
+      "items": {
+        "type": "object",
+        "required": ["source"],
+        "additionalProperties": false,
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Folder to take files from, relative to this project file."
+          },
+          "target": {
+            "type": "string",
+            "pattern": "^INSTALLFOLDER([\\\\/].+)?$",
+            "default": "INSTALLFOLDER",
+            "description": "Where the files go: INSTALLFOLDER, optionally with a subpath such as INSTALLFOLDER/plugins."
+          },
+          "recursive": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to descend into subfolders."
+          },
+          "exclude": {
+            "type": "array",
+            "description": "Patterns to leave out. A pattern without a slash matches file names anywhere (*.pdb); one with a slash matches the path relative to source.",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "outputFolder": {
+          "type": "string",
+          "default": "artifacts",
+          "description": "Folder for build output, relative to this project file."
+        },
+        "packageFileName": {
+          "type": "string",
+          "description": "Name of the package. Empty means name and version are used."
+        },
+        "cabinetName": {
+          "type": "string",
+          "default": "product.cab",
+          "description": "Name of the cabinet embedded in the package."
+        }
+      }
+    }
+  }
+}
